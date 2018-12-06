@@ -30,24 +30,35 @@ import (
 )
 
 type commandPackage struct {
-	Commands []command `json:"commands"`
-
-	Requirements struct {
-		Go     string `json:"go"`
-		Php    string `json:"php"`
-		Node   string `json:"node"`
-		Ruby   string `json:"ruby"`
-		Python string `json:"python"`
-	} `json:"requirements"`
+	Name             string            `json:"name"`
+	Version          string            `json:"version"`
+	Commands         []command         `json:"commands"`
+	Requirements     map[string]string `json:"requirements"`
+	MinimumStability string            `json:"minimum-stability"`
 
 	action interface{}
+}
+
+func (c *commandPackage) GetMinimumStability() int {
+	switch strings.ToLower(c.MinimumStability) {
+	case "rc":
+		return ReleaseTypeRc
+	case "beta":
+		return ReleaseTypeBeta
+	case "alpha":
+		return ReleaseTypeAlpha
+	case "dev":
+		return ReleaseTypeDev
+	default:
+		return ReleaseTypeStable
+	}
 }
 
 func readPackage(dir string) (commandPackage, error) {
 	if _, err := os.Stat(filepath.Join(dir, "cli.json")); err != nil {
 		dir = filepath.Dir(dir)
 		if _, err = os.Stat(filepath.Join(dir, "cli.json")); err != nil {
-			return commandPackage{}, cli.NewExitError("Package does not contain a cli.json file.", 1)
+			return commandPackage{}, cli.NewExitError(ErrPackageNotFound, 1)
 		}
 	}
 
@@ -70,7 +81,7 @@ func readPackage(dir string) (commandPackage, error) {
 }
 
 func getPackagePaths() []string {
-	akamaiCliPath, err := getAkamaiCliSrcPath()
+	akamaiCliPath, err := getSrcPath()
 	if err == nil && akamaiCliPath != "" {
 		paths, _ := filepath.Glob(filepath.Join(akamaiCliPath, "*"))
 		if len(paths) > 0 {
@@ -83,7 +94,7 @@ func getPackagePaths() []string {
 
 func getPackageBinPaths() string {
 	path := ""
-	akamaiCliPath, err := getAkamaiCliSrcPath()
+	akamaiCliPath, err := getSrcPath()
 	if err == nil && akamaiCliPath != "" {
 		paths, _ := filepath.Glob(filepath.Join(akamaiCliPath, "*"))
 		if len(paths) > 0 {
@@ -117,23 +128,23 @@ func findPackageDir(dir string) string {
 }
 
 func determineCommandLanguage(cmdPackage commandPackage) string {
-	if cmdPackage.Requirements.Php != "" {
+	if cmdPackage.Requirements["php"] != "" {
 		return "php"
 	}
 
-	if cmdPackage.Requirements.Node != "" {
+	if cmdPackage.Requirements["node"] != "" {
 		return "javascript"
 	}
 
-	if cmdPackage.Requirements.Ruby != "" {
+	if cmdPackage.Requirements["ruby"] != "" {
 		return "ruby"
 	}
 
-	if cmdPackage.Requirements.Go != "" {
+	if cmdPackage.Requirements["go"] != "" {
 		return "go"
 	}
 
-	if cmdPackage.Requirements.Python != "" {
+	if cmdPackage.Requirements["python"] != "" {
 		return "python"
 	}
 

@@ -29,12 +29,12 @@ import (
 func installGolang(dir string, cmdPackage commandPackage) (bool, error) {
 	bin, err := exec.LookPath("go")
 	if err != nil {
-		return false, NewExitErrorf(1, ERR_RUNTIME_NOT_FOUND, "Go")
+		return false, NewExitErrorf(1, ErrRuntimeNotFound, "Go")
 	}
 
 	log.Tracef("Go binary found: %s", bin)
 
-	if cmdPackage.Requirements.Go != "" && cmdPackage.Requirements.Go != "*" {
+	if cmdPackage.Requirements["go"] != "" && cmdPackage.Requirements["go"] != "*" {
 		cmd := exec.Command(bin, "version")
 		output, _ := cmd.Output()
 		log.Tracef("%s version: %s", bin, output)
@@ -42,16 +42,16 @@ func installGolang(dir string, cmdPackage commandPackage) (bool, error) {
 		matches := r.FindStringSubmatch(string(output))
 
 		if len(matches) == 0 {
-			return false, NewExitErrorf(1, ERR_RUNTIME_NO_VERSION_FOUND, "Go", cmdPackage.Requirements.Go)
+			return false, NewExitErrorf(1, ErrRuntimeNoVersionFound, "Go", cmdPackage.Requirements["go"])
 		}
 
-		if versionCompare(cmdPackage.Requirements.Go, matches[1]) == -1 {
+		if versionCompare(cmdPackage.Requirements["go"], matches[1]) == -1 {
 			log.Tracef("Go Version found: %s", matches[1])
-			return false, NewExitErrorf(1, ERR_RUNTIME_MINIMUM_VERSION_REQUIRED, "Go", cmdPackage.Requirements.Go, matches[1])
+			return false, NewExitErrorf(1, ErrRuntimeMinimumVersionRequired, "Go", cmdPackage.Requirements["go"], matches[1])
 		}
 	}
 
-	goPath, err := getAkamaiCliPath()
+	goPath, err := getCliHome()
 	if err != nil {
 		return false, cli.NewExitError(color.RedString("Unable to determine CLI home directory"), 1)
 	}
@@ -79,7 +79,7 @@ func installGolang(dir string, cmdPackage commandPackage) (bool, error) {
 		_, err = cmd.Output()
 		if err != nil {
 			logMultilinef(log.Debugf, "Unable to build binary (%s): \n%s", execName, err.(*exec.ExitError).Stderr)
-			return false, NewExitErrorf(1, ERR_PACKAGE_COMPILE_FAILURE, command.Name)
+			return false, NewExitErrorf(1, ErrPackageCompileFailure, command.Name)
 		}
 	}
 
@@ -96,11 +96,11 @@ func installGolangDepsGlide(dir string) error {
 			_, err = cmd.Output()
 			if err != nil {
 				logMultilinef(log.Debugf, "Unable execute package manager (glide install): \n %s", err.(*exec.ExitError).Stderr)
-				return NewExitErrorf(1, ERR_PACKAGE_MANAGER_EXEC, "glide")
+				return NewExitErrorf(1, ErrPackageManagerExec, "glide")
 			}
 		} else {
-			log.Debugf(ERR_PACKAGE_MANAGER_NOT_FOUND, "glide")
-			return NewExitErrorf(1, ERR_PACKAGE_MANAGER_NOT_FOUND, "glide")
+			log.Debugf(ErrPackageManagerNotFound, "glide")
+			return NewExitErrorf(1, ErrPackageManagerNotFound, "glide")
 		}
 	}
 
@@ -117,11 +117,11 @@ func installGolangDepsDep(dir string) error {
 			_, err = cmd.Output()
 			if err != nil {
 				logMultilinef(log.Debugf, "Unable execute package manager (dep ensure): \n %s", err.(*exec.ExitError).Stderr)
-				return NewExitErrorf(1, ERR_PACKAGE_MANAGER_EXEC, "dep")
+				return NewExitErrorf(1, ErrPackageManagerExec, "dep")
 			}
 		} else {
-			log.Debugf(ERR_PACKAGE_MANAGER_NOT_FOUND, "dep")
-			return NewExitErrorf(1, ERR_PACKAGE_MANAGER_NOT_FOUND, "dep")
+			log.Debugf(ErrPackageManagerNotFound, "dep")
+			return NewExitErrorf(1, ErrPackageManagerNotFound, "dep")
 		}
 	}
 

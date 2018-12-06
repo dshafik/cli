@@ -23,36 +23,38 @@ import (
 )
 
 func cmdConfigSet(c *cli.Context) {
+	config, _ := getConfig()
 	section, key := parseConfigPath(c)
-
 	value := strings.Join(c.Args().Tail(), " ")
 
-	setConfigValue(section, key, value)
-	saveConfig()
+	config.Set(section, key, value)
+	config.Save()
 }
 
 func cmdConfigGet(c *cli.Context) {
+	config, _ := getConfig()
 	section, key := parseConfigPath(c)
 
-	fmt.Fprintln(akamai.App.Writer, getConfigValue(section, key))
+	fmt.Fprintln(akamai.App.Writer, config.Get(section, key))
+	return
 }
 
 func cmdConfigUnset(c *cli.Context) {
+	config, _ := getConfig()
 	section, key := parseConfigPath(c)
-
-	unsetConfigValue(section, key)
-	saveConfig()
+	config.Unset(section, key)
+	config.Save()
 }
 
 func cmdConfigList(c *cli.Context) {
-	config, err := openConfig()
+	config, err := getConfig()
 	if err != nil {
 		return
 	}
 
 	if c.NArg() > 0 {
 		sectionName := c.Args().First()
-		section := config.Section(sectionName)
+		section := config.Ini.Section(sectionName)
 		for _, key := range section.Keys() {
 			fmt.Fprintf(akamai.App.Writer, "%s.%s = %s\n", sectionName, key.Name(), key.Value())
 		}
@@ -60,7 +62,7 @@ func cmdConfigList(c *cli.Context) {
 		return
 	}
 
-	for _, section := range config.Sections() {
+	for _, section := range config.Ini.Sections() {
 		for _, key := range section.Keys() {
 			fmt.Fprintf(akamai.App.Writer, "%s.%s = %s\n", section.Name(), key.Name(), key.Value())
 		}

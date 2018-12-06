@@ -33,7 +33,7 @@ func installRuby(dir string, cmdPackage commandPackage) (bool, error) {
 
 	log.Tracef("Ruby binary found: %s", bin)
 
-	if cmdPackage.Requirements.Ruby != "" && cmdPackage.Requirements.Ruby != "*" {
+	if cmdPackage.Requirements["ruby"] != "" && cmdPackage.Requirements["ruby"] != "*" {
 		cmd := exec.Command(bin, "-v")
 		output, _ := cmd.Output()
 		log.Tracef("%s -v: %s", bin, output)
@@ -41,12 +41,12 @@ func installRuby(dir string, cmdPackage commandPackage) (bool, error) {
 		matches := r.FindStringSubmatch(string(output))
 
 		if len(matches) == 0 {
-			return false, NewExitErrorf(1, ERR_RUNTIME_NO_VERSION_FOUND, "Ruby", cmdPackage.Requirements.Ruby)
+			return false, NewExitErrorf(1, ErrRuntimeNoVersionFound, "Ruby", cmdPackage.Requirements["ruby"])
 		}
 
-		if versionCompare(cmdPackage.Requirements.Ruby, matches[1]) == -1 {
+		if versionCompare(cmdPackage.Requirements["ruby"], matches[1]) == -1 {
 			log.Tracef("Ruby Version found: %s", matches[1])
-			return false, NewExitErrorf(1, ERR_RUNTIME_MINIMUM_VERSION_REQUIRED, "Ruby", cmdPackage.Requirements.Node, matches[1])
+			return false, NewExitErrorf(1, ErrRuntimeMinimumVersionRequired, "Ruby", cmdPackage.Requirements["ruby"], matches[1])
 		}
 	}
 
@@ -67,12 +67,12 @@ func installRubyDepsBundler(dir string) error {
 			_, err = cmd.Output()
 			if err != nil {
 				logMultilinef(log.Debugf, "Unable execute package manager (bundle install): \n%s", err.(*exec.ExitError).Stderr)
-				return NewExitErrorf(1, ERR_PACKAGE_MANAGER_EXEC, "bundler")
+				return NewExitErrorf(1, ErrPackageManagerExec, "bundler")
 			}
 			return nil
 		} else {
-			log.Debugf(ERR_PACKAGE_MANAGER_NOT_FOUND, "bundler")
-			return NewExitErrorf(1, ERR_PACKAGE_MANAGER_NOT_FOUND, "bundler")
+			log.Debugf(ErrPackageManagerNotFound, "bundler")
+			return NewExitErrorf(1, ErrPackageManagerNotFound, "bundler")
 		}
 	}
 

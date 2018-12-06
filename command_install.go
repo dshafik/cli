@@ -27,12 +27,15 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 )
 
+// TODO: add support for --save flag
 func cmdInstall(c *cli.Context) error {
 	if !c.Args().Present() {
-		return cli.NewExitError(color.RedString("You must specify a repository URL"), 1)
+		return install()
 	}
 
 	oldCmds := getCommands()
+
+	// TODO: Split repos on @ to get versions
 
 	for _, repo := range c.Args() {
 		repo = githubize(repo)
@@ -59,51 +62,43 @@ func isPublicRepo(repo string) bool {
 	return !strings.Contains(repo, ":") || strings.HasPrefix(repo, "https://github.com/")
 }
 
-func installPackage(repo string, forceBinary bool) error {
-	srcPath, err := getAkamaiCliSrcPath()
+// TODO: support version argument
+func installPackage(repoURL string, forceBinary bool) error {
+	srcPath, err := getSrcPath()
 	if err != nil {
 		return err
 	}
 
 	_ = os.MkdirAll(srcPath, 0700)
 
-	akamai.StartSpinner(fmt.Sprintf("Attempting to fetch command from %s...", repo), fmt.Sprintf("Attempting to fetch command from %s...", repo)+"... ["+color.GreenString("OK")+"]\n")
+	akamai.StartSpinner(fmt.Sprintf("Attempting to fetch command from %s...", repoURL), fmt.Sprintf("Attempting to fetch command from %s...", repoURL)+"... ["+color.GreenString("OK")+"]\n")
 
-	dirName := strings.TrimSuffix(filepath.Base(repo), ".git")
-	packageDir := filepath.Join(srcPath, dirName)
-	if _, err = os.Stat(packageDir); err == nil {
-		akamai.StopSpinnerFail()
-
-		return cli.NewExitError(color.RedString("Package directory already exists (%s)", packageDir), 1)
-	}
-
-	_, err = git.PlainClone(packageDir, false, &git.CloneOptions{
-		URL:      repo,
-		Progress: nil,
-		Depth:    1,
-	})
-
+	packagePath := getPackagePath(srcPath, repoURL)
+	_, err = clonePackage(packagePath, repoURL, 1)
 	if err != nil {
-		os.RemoveAll(packageDir)
-
 		akamai.StopSpinnerFail()
+		if err == git.ErrRepositoryAlreadyExists {
+			return cli.NewExitError(color.RedString("Package directory already exists (%s)", packagePath), 1)
+		}
+		os.RemoveAll(packagePath)
 		return cli.NewExitError(color.RedString("Unable to clone repository: "+err.Error()), 1)
 	}
 
 	akamai.StopSpinnerOk()
 
-	if strings.HasPrefix(repo, "https://github.com/akamai/cli-") != true && strings.HasPrefix(repo, "git@github.com:akamai/cli-") != true {
+	if strings.HasPrefix(repoURL, "https://github.com/akamai/cli-") != true && strings.HasPrefix(repoURL, "git@github.com:akamai/cli-") != true {
 		fmt.Fprintln(akamai.App.ErrWriter, color.CyanString("Disclaimer: You are installing a third-party package, subject to its own terms and conditions. Akamai makes no warranty or representation with respect to the third-party package."))
 	}
 
-	if !installPackageDependencies(packageDir, forceBinary) {
-		os.RemoveAll(packageDir)
+	if !installPackageDependencies(packagePath, forceBinary) {
+		os.RemoveAll(packagePath)
 		return cli.NewExitError("", 1)
 	}
 
 	return nil
 }
 
+// TODO: support installation of cli package dependencies
 func installPackageDependencies(dir string, forceBinary bool) bool {
 	akamai.StartSpinner("Installing...", "Installing...... ["+color.GreenString("OK")+"]\n")
 
@@ -183,4 +178,52 @@ func installPackageDependencies(dir string, forceBinary bool) bool {
 	}
 
 	return true
+}
+
+// TODO: cleanup the args here, this should be more standalone
+func clonePackage(dest string, repoURL string, depth int) (*git.Repository, error) {
+	repo, err := git.PlainClone(dest, false, &git.CloneOptions{
+		URL:      repoURL,
+		Progress: nil,
+		Depth:    depth,
+	})
+
+	return repo, err
+}
+
+func getPackagePath(dest string, repoURL string) string {
+	dirName := strings.TrimSuffix(filepath.Base(repoURL), ".git")
+	return filepath.Join(dest, dirName)
+}
+
+func install() error {
+	akamai.StartSpinner("Installing packages...", "Installing packages...... ["+color.GreenString("OK")+"]\n")
+	root, _ := os.Getwd()
+	pkg, err := readPackage(root)
+	if err != nil {
+		akamai.StopSpinner("... ["+color.RedString("FAIL")+"]\n", true)
+		return err
+	}
+
+	err = installProjectPackages(pkg)
+	fmt.Printf("%#v\n", err)
+	akamai.StopSpinner("... ["+color.CyanString("OK")+"]\n", true)
+
+	return err
+}
+
+func importPath(packageName string) string {
+	return strings.TrimPrefix(
+		strings.TrimPrefix(
+			strings.TrimPrefix(
+				strings.TrimSuffix(
+					githubize(packageName),
+					".git",
+				),
+				"https://",
+			),
+			"http://",
+		),
+		"file://",
+	)
 }

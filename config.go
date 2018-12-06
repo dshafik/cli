@@ -22,94 +22,46 @@ import (
 	"strings"
 	"time"
 
-	akamai "github.com/akamai/cli-common-golang"
-	"github.com/go-ini/ini"
+	. "github.com/akamai/cli-common-golang"
+	conf "github.com/akamai/cli-common-golang/config"
 )
 
 const (
 	configVersion string = "1.1"
 )
 
-var config map[string]*ini.File = make(map[string]*ini.File)
-
-func getConfigFilePath() (string, error) {
-	cliPath, err := getAkamaiCliPath()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(cliPath, "config"), nil
-}
-
-func openConfig() (*ini.File, error) {
-	path, err := getConfigFilePath()
+func getConfig() (*conf.Config, error) {
+	cliPath, err := getCliHome()
 	if err != nil {
 		return nil, err
 	}
 
-	if config[path] != nil {
-		return config[path], nil
-	}
-
-	if _, err = os.Stat(path); os.IsNotExist(err) {
-		iniFile := ini.Empty()
-		config[path] = iniFile
-		return config[path], nil
-	}
-
-	iniFile, err := ini.Load(path)
+	global, err := conf.NewConfig(filepath.Join(cliPath, "config"))
 	if err != nil {
 		return nil, err
 	}
-	config[path] = iniFile
 
-	return config[path], nil
-}
-
-func saveConfig() error {
-	config, err := openConfig()
-	if err != nil {
-		return err
-	}
-
-	path, err := getConfigFilePath()
-	if err != nil {
-		return err
-	}
-
-	err = config.SaveTo(path)
-	if err != nil {
-		fmt.Fprintln(akamai.App.Writer, err.Error())
-		return err
-	}
-
-	return nil
+	return global, nil
 }
 
 func migrateConfig() {
-	configPath, err := getConfigFilePath()
+	conf, err := getConfig()
 	if err != nil {
-		return
-	}
-
-	_, err = openConfig()
-	if err != nil {
+		fmt.Fprintln(App.ErrWriter, err.Error())
 		return
 	}
 
 	var currentVersion string
-	if _, err = os.Stat(configPath); err == nil {
-		// Do we need to migrate from an older version?
-		currentVersion = getConfigValue("cli", "config-version")
-		if currentVersion == configVersion {
-			return
-		}
+	// Do we need to migrate from an older version?
+	currentVersion = conf.Get("cli", "config-version")
+	if currentVersion == configVersion {
+		return
 	}
 
 	switch currentVersion {
 	case "":
 		// Create v1
-		cliPath, _ := getAkamaiCliPath()
+		cliPath, _ := getCliHome()
 
 		var data []byte
 		upgradeFile := filepath.Join(cliPath, ".upgrade-check")
@@ -125,81 +77,29 @@ func migrateConfig() {
 		if len(data) != 0 {
 			date := string(data)
 			if date == "never" || date == "ignore" {
-				setConfigValue("cli", "last-upgrade-check", date)
+				conf.Set("cli", "last-upgrade-check", date)
 			} else {
 				if m := strings.LastIndex(date, "m="); m != -1 {
 					date = date[0 : m-1]
 				}
 				lastUpgrade, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", date)
 				if err == nil {
-					setConfigValue("cli", "last-upgrade-check", lastUpgrade.Format(time.RFC3339))
+					conf.Set("cli", "last-upgrade-check", lastUpgrade.Format(time.RFC3339))
 				}
 			}
 
 			os.Remove(upgradeFile)
 		}
 
-		setConfigValue("cli", "config-version", "1")
+		conf.Set("cli", "config-version", "1")
 	case "1":
 		// Upgrade to v1.1
-		if getConfigValue("cli", "enable-cli-statistics") == "true" {
-			setConfigValue("cli", "stats-version", "1.0")
+		if conf.Get("cli", "enable-cli-statistics") == "true" {
+			conf.Set("cli", "stats-version", "1.0")
 		}
-		setConfigValue("cli", "config-version", "1.1")
+		conf.Set("cli", "config-version", "1.1")
 	}
 
-	saveConfig()
+	conf.Save()
 	migrateConfig()
-}
-
-func getConfigValue(sectionName string, keyName string) string {
-	config, err := openConfig()
-	if err != nil {
-		return ""
-	}
-
-	section := config.Section(sectionName)
-	key := section.Key(keyName)
-	if key != nil {
-		return key.String()
-	}
-
-	return ""
-}
-
-func setConfigValue(sectionName string, key string, value string) {
-	config, err := openConfig()
-	if err != nil {
-		return
-	}
-
-	section := config.Section(sectionName)
-	section.Key(key).SetValue(value)
-}
-
-func unsetConfigValue(sectionName string, key string) {
-	config, err := openConfig()
-	if err != nil {
-		return
-	}
-
-	section := config.Section(sectionName)
-	section.DeleteKey(key)
-}
-
-func exportConfigEnv() {
-	migrateConfig()
-
-	config, err := openConfig()
-	if err != nil {
-		return
-	}
-
-	for _, section := range config.Sections() {
-		for _, key := range section.Keys() {
-			envVar := "AKAMAI_" + strings.ToUpper(section.Name()) + "_"
-			envVar += strings.ToUpper(strings.Replace(key.Name(), "-", "_", -1))
-			os.Setenv(envVar, key.String())
-		}
-	}
 }

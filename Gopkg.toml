@@ -7,10 +7,6 @@
   version = "1.6.0"
 
 [[constraint]]
-  name = "github.com/go-ini/ini"
-  version = "1.35.0"
-
-[[constraint]]
   name = "github.com/google/uuid"
   version = "0.2.0"
 
@@ -41,6 +37,10 @@
 [[constraint]]
   name = "gopkg.in/src-d/go-git.v4"
   version = "4.3.1"
+
+[[constraint]]
+    name = "github.com/Masterminds/semver"
+    branch = "2.x"
 
 [prune]
   go-tests = true

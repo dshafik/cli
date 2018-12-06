@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ func self() string {
 	return filepath.Base(os.Args[0])
 }
 
-func getAkamaiCliPath() (string, error) {
+func getCliHome() (string, error) {
 	cliHome := os.Getenv("AKAMAI_CLI_HOME")
 	if cliHome == "" {
 		var err error
@@ -53,29 +54,40 @@ func getAkamaiCliPath() (string, error) {
 	return cliPath, nil
 }
 
-func getAkamaiCliSrcPath() (string, error) {
-	cliHome, _ := getAkamaiCliPath()
+func getSrcPath() (string, error) {
+	cliHome, _ := getCliHome()
 
 	return filepath.Join(cliHome, "src"), nil
 }
 
-func getAkamaiCliCachePath() (string, error) {
-	if cachePath := getConfigValue("cli", "cache-path"); cachePath != "" {
-		return cachePath, nil
+func getPackageCachePath() (string, error) {
+	cache, err := getCachePath()
+	if err != nil {
+		return "", err
 	}
+	packages := path.Join(cache, "package-cache")
+	os.MkdirAll(packages, 0775)
+	return packages, nil
+}
 
-	cliHome, _ := getAkamaiCliPath()
-
-	cachePath := filepath.Join(cliHome, "cache")
-	err := os.MkdirAll(cachePath, 0700)
+func getProjectRoot() (string, error) {
+	current, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 
-	setConfigValue("cli", "cache-path", cachePath)
-	saveConfig()
+	for {
+		if current == "" {
+			break
+		}
+		_, err := readPackage(current)
+		if err != nil {
+			return current, nil
+		}
+		current = filepath.Dir(current)
+	}
 
-	return cachePath, nil
+	return "", errors.New("no project found")
 }
 
 func findExec(cmd string) ([]string, error) {
@@ -159,7 +171,7 @@ func findExec(cmd string) ([]string, error) {
 			cmd = []string{bin, cmdFile}
 		case language == "python":
 			var bins pythonBins
-			bins, err = findPythonBins(cmdPackage.Requirements.Python)
+			bins, err = findPythonBins(cmdPackage.Requirements["python"])
 			bin = bins.python
 
 			cmd = []string{bin, cmdFile}

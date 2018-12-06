@@ -1,0 +1,7 @@
+{
+  "name": "akamai/cli",
+  "requirements": {
+    "go": "1.8.0",
+    "file:///Users/dshafik/src/akamai/cli-property": "^1.0.0"
+  }
+}

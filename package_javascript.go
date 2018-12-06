@@ -28,13 +28,13 @@ func installJavaScript(dir string, cmdPackage commandPackage) (bool, error) {
 	if err != nil {
 		bin, err = exec.LookPath("nodejs")
 		if err != nil {
-			return false, NewExitErrorf(1, ERR_RUNTIME_NOT_FOUND, "Node.js")
+			return false, NewExitErrorf(1, ErrRuntimeNotFound, "Node.js")
 		}
 	}
 
 	log.Tracef("Node.js binary found: %s", bin)
 
-	if cmdPackage.Requirements.Node != "" && cmdPackage.Requirements.Node != "*" {
+	if cmdPackage.Requirements["node"] != "" && cmdPackage.Requirements["node"] != "*" {
 		cmd := exec.Command(bin, "-v")
 		output, _ := cmd.Output()
 		log.Tracef("%s -v: %s", bin, output)
@@ -42,12 +42,12 @@ func installJavaScript(dir string, cmdPackage commandPackage) (bool, error) {
 		matches := r.FindStringSubmatch(string(output))
 
 		if len(matches) == 0 {
-			return false, NewExitErrorf(1, ERR_RUNTIME_NO_VERSION_FOUND, "Node.js", cmdPackage.Requirements.Node)
+			return false, NewExitErrorf(1, ErrRuntimeNoVersionFound, "Node.js", cmdPackage.Requirements["node"])
 		}
 
-		if versionCompare(cmdPackage.Requirements.Node, matches[1]) == -1 {
+		if versionCompare(cmdPackage.Requirements["node"], matches[1]) == -1 {
 			log.Tracef("Node.js Version found: %s", matches[1])
-			return false, NewExitErrorf(1, ERR_RUNTIME_MINIMUM_VERSION_REQUIRED, "Node.js", cmdPackage.Requirements.Node, matches[1])
+			return false, NewExitErrorf(1, ErrRuntimeMinimumVersionRequired, "Node.js", cmdPackage.Requirements["node"], matches[1])
 		}
 	}
 
@@ -72,12 +72,12 @@ func installNodeDepsYarn(dir string) error {
 			_, err = cmd.Output()
 			if err != nil {
 				logMultilinef(log.Debugf, "Unable execute package manager (%s install): \n%s", bin, err.(*exec.ExitError).Stderr)
-				return NewExitErrorf(1, ERR_PACKAGE_MANAGER_EXEC, "yarn")
+				return NewExitErrorf(1, ErrPackageManagerExec, "yarn")
 			}
 			return nil
 		} else {
-			log.Debugf(ERR_PACKAGE_MANAGER_NOT_FOUND, "yarn")
-			return NewExitErrorf(1, ERR_PACKAGE_MANAGER_NOT_FOUND, "yarn")
+			log.Debugf(ErrPackageManagerNotFound, "yarn")
+			return NewExitErrorf(1, ErrPackageManagerNotFound, "yarn")
 		}
 	}
 
@@ -95,12 +95,12 @@ func installNodeDepsNpm(dir string) error {
 			_, err = cmd.Output()
 			if err != nil {
 				logMultilinef(log.Debugf, "Unable execute package manager (%s install): \n%s", bin, err.(*exec.ExitError).Stderr)
-				return NewExitErrorf(1, ERR_PACKAGE_MANAGER_EXEC, "npm")
+				return NewExitErrorf(1, ErrPackageManagerExec, "npm")
 			}
 			return nil
 		} else {
-			log.Debugf(ERR_PACKAGE_MANAGER_NOT_FOUND, "npm")
-			return NewExitErrorf(1, ERR_PACKAGE_MANAGER_NOT_FOUND, "npm")
+			log.Debugf(ErrPackageManagerNotFound, "npm")
+			return NewExitErrorf(1, ErrPackageManagerNotFound, "npm")
 		}
 	}
 

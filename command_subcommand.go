@@ -22,6 +22,7 @@ import (
 	"github.com/urfave/cli"
 )
 
+// TODO: Support checking $PROJECT_ROOT/.akamai-cli before $AKAMAI_CLI_HOME/.akamai-cli
 func cmdSubcommand(c *cli.Context) error {
 	commandName := strings.ToLower(c.Command.Name)
 
@@ -39,7 +40,7 @@ func cmdSubcommand(c *cli.Context) error {
 
 	cmdPackage, _ := readPackage(packageDir)
 
-	if cmdPackage.Requirements.Python != "" {
+	if cmdPackage.Requirements["python"] != "" {
 		if err = migratePythonPackage(commandName, packageDir); err != nil {
 			return err
 		}

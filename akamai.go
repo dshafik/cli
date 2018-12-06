@@ -15,13 +15,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	akamai "github.com/akamai/cli-common-golang"
-	"github.com/kardianos/osext"
 	"github.com/urfave/cli"
 )
 
@@ -30,20 +29,27 @@ const (
 	VERSION = "1.1.0"
 )
 
-func main() {
-	os.Setenv("AKAMAI_CLI", "1")
-	os.Setenv("AKAMAI_CLI_VERSION", VERSION)
+func getCachePath() (cachePath string, err error) {
+	config, err := getConfig()
+	if err != nil {
+		return
+	}
 
-	getAkamaiCliCachePath()
-	exportConfigEnv()
-	createApp()
+	if cachePath = config.Get("cli", "cache-path"); cachePath != "" {
+		return
+	}
 
-	setupLogging()
+	cliHome, _ := getCliHome()
 
-	firstRun()
-	checkUpgrade()
-	checkPing()
-	akamai.App.Run(os.Args)
+	cachePath = filepath.Join(cliHome, "cache")
+	err = os.MkdirAll(cachePath, 0700)
+	if err != nil {
+		return
+	}
+	config.Set("cli", "cache-path", cachePath)
+	config.Save()
+
+	return
 }
 
 func createApp() {
@@ -102,45 +108,4 @@ func checkUpgrade() {
 		}
 		trackEvent("upgrade.auto", "failed", "to: "+latestVersion+" from: "+VERSION)
 	}
-}
-
-func defaultAction(c *cli.Context) {
-	cmd, err := osext.Executable()
-	if err != nil {
-		cmd = self()
-	}
-
-	zshScript := `set -k
-# To enable zsh auto-completion, run: eval "$(` + cmd + ` --zsh)"
-# We recommend adding this to your .zshrc file
-autoload -U compinit && compinit
-autoload -U bashcompinit && bashcompinit`
-
-	bashComments := `# To enable bash auto-completion, run: eval "$(` + cmd + ` --bash)"
-# We recommend adding this to your .bashrc or .bash_profile file`
-
-	bashScript := `_akamai_cli_bash_autocomplete() {
-    local cur opts base
-    COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    opts=$( ${COMP_WORDS[@]:0:$COMP_CWORD} --generate-auto-complete )
-    COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
-    return 0
-}
-
-complete -F _akamai_cli_bash_autocomplete ` + self()
-
-	if c.Bool("bash") {
-		fmt.Fprintln(akamai.App.Writer, bashComments)
-		fmt.Fprintln(akamai.App.Writer, bashScript)
-		return
-	}
-
-	if c.Bool("zsh") {
-		fmt.Fprintln(akamai.App.Writer, zshScript)
-		fmt.Fprintln(akamai.App.Writer, bashScript)
-		return
-	}
-
-	cli.ShowAppHelpAndExit(c, 0)
 }

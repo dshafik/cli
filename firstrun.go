@@ -63,8 +63,10 @@ func firstRunCheckInPath() (bool, error) {
 	inPath := false
 	writablePaths := []string{}
 
+	config, _ := getConfig()
+
 	var bannerShown bool
-	if getConfigValue("cli", "install-in-path") == "no" {
+	if config.Get("cli", "install-in-path") == "no" {
 		inPath = true
 		bannerShown = firstRunCheckUpgrade(!inPath)
 	}
@@ -102,8 +104,8 @@ func firstRunCheckInPath() (bool, error) {
 		answer := ""
 		fmt.Scanln(&answer)
 		if answer != "" && strings.ToLower(answer) != "y" {
-			setConfigValue("cli", "install-in-path", "no")
-			saveConfig()
+			config.Set("cli", "install-in-path", "no")
+			config.Save()
 			firstRunCheckUpgrade(true)
 			return true, nil
 		}
@@ -150,7 +152,8 @@ func choosePath(writablePaths []string, answer string, selfPath string) {
 }
 
 func firstRunCheckUpgrade(bannerShown bool) bool {
-	if getConfigValue("cli", "last-upgrade-check") == "" {
+	config, _ := getConfig()
+	if config.Get("cli", "last-upgrade-check") == "" {
 		if !bannerShown {
 			bannerShown = true
 			showBanner()
@@ -160,13 +163,13 @@ func firstRunCheckUpgrade(bannerShown bool) bool {
 		answer := ""
 		fmt.Scanln(&answer)
 		if answer != "" && strings.ToLower(answer) != "y" {
-			setConfigValue("cli", "last-upgrade-check", "ignore")
-			saveConfig()
+			config.Set("cli", "last-upgrade-check", "ignore")
+			config.Save()
 			return bannerShown
 		}
 
-		setConfigValue("cli", "last-upgrade-check", "never")
-		saveConfig()
+		config.Set("cli", "last-upgrade-check", "never")
+		config.Save()
 	}
 
 	return bannerShown

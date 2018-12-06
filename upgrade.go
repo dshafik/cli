@@ -41,7 +41,9 @@ func checkUpgradeVersion(force bool) string {
 		return ""
 	}
 
-	data := strings.TrimSpace(getConfigValue("cli", "last-upgrade-check"))
+	config, _ := getConfig()
+
+	data := strings.TrimSpace(config.Get("cli", "last-upgrade-check"))
 
 	if data == "ignore" {
 		return ""
@@ -67,8 +69,8 @@ func checkUpgradeVersion(force bool) string {
 	}
 
 	if checkForUpgrade {
-		setConfigValue("cli", "last-upgrade-check", time.Now().Format(time.RFC3339))
-		err := saveConfig()
+		config.Set("cli", "last-upgrade-check", time.Now().Format(time.RFC3339))
+		err := config.Save()
 		if err != nil {
 			return ""
 		}

@@ -35,9 +35,10 @@ import (
 const statsVersion string = "1.1"
 
 func firstRunCheckStats(bannerShown bool) bool {
+	config, _ := getConfig()
 	anonymous := color.New(color.FgWhite, color.Bold).Sprint("anonymous")
 
-	if getConfigValue("cli", "enable-cli-statistics") == "" {
+	if config.Get("cli", "enable-cli-statistics") == "" {
 		if !bannerShown {
 			bannerShown = true
 			showBanner()
@@ -51,17 +52,17 @@ func firstRunCheckStats(bannerShown bool) bool {
 		fmt.Scanln(&answer)
 		if answer != "" && strings.ToLower(answer) != "y" {
 			trackEvent("first-run", "stats-opt-out", "true")
-			setConfigValue("cli", "enable-cli-statistics", "false")
-			saveConfig()
+			config.Set("cli", "enable-cli-statistics", "false")
+			config.Save()
 			return bannerShown
 		}
 
-		setConfigValue("cli", "enable-cli-statistics", statsVersion)
-		setConfigValue("cli", "last-ping", "never")
+		config.Set("cli", "enable-cli-statistics", statsVersion)
+		config.Set("cli", "last-ping", "never")
 		setupUUID()
-		saveConfig()
+		config.Save()
 		trackEvent("first-run", "stats-enabled", statsVersion)
-	} else if getConfigValue("cli", "enable-cli-statistics") != "false" {
+	} else if config.Get("cli", "enable-cli-statistics") != "false" {
 		migrateStats(bannerShown)
 	}
 
@@ -69,7 +70,9 @@ func firstRunCheckStats(bannerShown bool) bool {
 }
 
 func migrateStats(bannerShown bool) bool {
-	currentVersion := getConfigValue("cli", "stats-version")
+	config, _ := getConfig()
+
+	currentVersion := config.Get("cli", "stats-version")
 	if currentVersion == statsVersion {
 		return bannerShown
 	}
@@ -98,39 +101,41 @@ func migrateStats(bannerShown bool) bool {
 	fmt.Scanln(&answer)
 	if answer != "" && strings.ToLower(answer) != "y" {
 		trackEvent("first-run", "stats-update-opt-out", statsVersion)
-		setConfigValue("cli", "enable-cli-statistics", "false")
-		saveConfig()
+		config.Set("cli", "enable-cli-statistics", "false")
+		config.Save()
 		return bannerShown
 	}
 
-	setConfigValue("cli", "stats-version", statsVersion)
-	saveConfig()
+	config.Set("cli", "stats-version", statsVersion)
+	config.Save()
 	trackEvent("first-run", "stats-update-opt-in", statsVersion)
 
 	return bannerShown
 }
 
 func setupUUID() error {
-	if getConfigValue("cli", "client-id") == "" {
+	config, _ := getConfig()
+	if config.Get("cli", "client-id") == "" {
 		uuid, err := uuid.NewRandom()
 		if err != nil {
 			return err
 		}
 
-		setConfigValue("cli", "client-id", uuid.String())
-		saveConfig()
+		config.Set("cli", "client-id", uuid.String())
+		config.Save()
 	}
 
 	return nil
 }
 
 func trackEvent(category string, action string, value string) {
-	if getConfigValue("cli", "enable-cli-statistics") == "false" {
+	config, _ := getConfig()
+	if config.Get("cli", "enable-cli-statistics") == "false" {
 		return
 	}
 
 	clientId := "anonymous"
-	if val := getConfigValue("cli", "client-id"); val != "" {
+	if val := config.Get("cli", "client-id"); val != "" {
 		clientId = val
 	}
 
@@ -169,11 +174,12 @@ func trackEvent(category string, action string, value string) {
 }
 
 func checkPing() {
-	if getConfigValue("cli", "enable-cli-statistics") == "false" {
+	config, _ := getConfig()
+	if config.Get("cli", "enable-cli-statistics") == "false" {
 		return
 	}
 
-	data := strings.TrimSpace(getConfigValue("cli", "last-ping"))
+	data := strings.TrimSpace(config.Get("cli", "last-ping"))
 
 	doPing := false
 	if data == "" || data == "never" {
@@ -193,7 +199,7 @@ func checkPing() {
 
 	if doPing {
 		trackEvent("ping", "daily", "pong")
-		setConfigValue("cli", "last-ping", time.Now().Format(time.RFC3339))
-		saveConfig()
+		config.Set("cli", "last-ping", time.Now().Format(time.RFC3339))
+		config.Save()
 	}
 }
